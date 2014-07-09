@@ -6,41 +6,52 @@ var begin = 0,
 	testStart = 0,
 	testDone = 0,
 	log = 0,
+	totalTests,
 	moduleContext,
 	moduleDoneContext,
 	testContext,
 	testDoneContext,
 	logContext;
 
-QUnit.begin(function() {
+QUnit.begin(function( args ) {
+	totalTests = args.totalTests;
 	begin++;
 });
+
 QUnit.done(function() {
 });
-QUnit.moduleStart(function(context) {
+
+QUnit.moduleStart(function( context ) {
 	moduleStart++;
 	moduleContext = context;
 });
-QUnit.moduleDone(function(context) {
+
+QUnit.moduleDone(function( context ) {
 	moduleDone++;
 	moduleDoneContext = context;
 });
-QUnit.testStart(function(context) {
+
+QUnit.testStart(function( context ) {
 	testStart++;
 	testContext = context;
 });
-QUnit.testDone(function(context) {
+
+QUnit.testDone(function( context ) {
 	testDone++;
 	testDoneContext = context;
 });
-QUnit.log(function(context) {
+
+QUnit.log(function( context ) {
 	log++;
 	logContext = context;
 });
 
-module("logs1");
+QUnit.module( "logs1" );
 
-test("test1", 15, function( assert ) {
+QUnit.test( "test1", function( assert ) {
+	assert.expect( 16 );
+
+	assert.equal( typeof totalTests, "number", "QUnit.begin should pass total amount of tests to callback" );
 	assert.equal( begin, 1, "QUnit.begin calls" );
 	assert.equal( moduleStart, 1, "QUnit.moduleStart calls" );
 	assert.equal( testStart, 1, "QUnit.testStart calls" );
@@ -56,7 +67,7 @@ test("test1", 15, function( assert ) {
 	}, "log context after equal(actual, expected, message)" );
 
 	assert.equal( "foo", "foo" );
-	assert.deepEqual(logContext, {
+	assert.deepEqual( logContext, {
 		name: "test1",
 		module: "logs1",
 		result: true,
@@ -70,7 +81,9 @@ test("test1", 15, function( assert ) {
 		module: "logs1",
 		name: "test1",
 		result: true,
-		message: "ok(true, message)"
+		message: "ok(true, message)",
+		actual: true,
+		expected: true
 	}, "log context after ok(true, message)" );
 
 	assert.strictEqual( testDoneContext, undefined, "testDone context" );
@@ -83,23 +96,27 @@ test("test1", 15, function( assert ) {
 		name: "logs1"
 	}, "module context" );
 
-	assert.equal( log, 14, "QUnit.log calls" );
+	assert.equal( log, 15, "QUnit.log calls" );
 });
-test("test2", 11, function( assert ) {
+
+QUnit.test( "test2", function( assert ) {
+	assert.expect( 11 );
 	assert.equal( begin, 1, "QUnit.begin calls" );
 	assert.equal( moduleStart, 1, "QUnit.moduleStart calls" );
 	assert.equal( testStart, 2, "QUnit.testStart calls" );
 	assert.equal( testDone, 1, "QUnit.testDone calls" );
 	assert.equal( moduleDone, 0, "QUnit.moduleDone calls" );
 
-	assert.ok( typeof testDoneContext.duration === "number" , "testDone context: duration" );
+	assert.equal( typeof testDoneContext.runtime, "number", "testDone context: runtime" );
+	delete testDoneContext.runtime;
+	// DEPRECATED: remove this delete when removing the duration property
 	delete testDoneContext.duration;
 	assert.deepEqual( testDoneContext, {
 		module: "logs1",
 		name: "test1",
 		failed: 0,
-		passed: 15,
-		total: 15
+		passed: 16,
+		total: 16
 	}, "testDone context" );
 	assert.deepEqual( testContext, {
 		module: "logs1",
@@ -110,12 +127,13 @@ test("test2", 11, function( assert ) {
 		name: "logs1"
 	}, "module context" );
 
-	assert.equal( log, 25, "QUnit.log calls" );
+	assert.equal( log, 26, "QUnit.log calls" );
 });
 
-module("logs2");
+QUnit.module( "logs2" );
 
-test( "test1", 9, function( assert ) {
+QUnit.test( "test1", function( assert ) {
+	assert.expect( 9 );
 	assert.equal( begin, 1, "QUnit.begin calls" );
 	assert.equal( moduleStart, 2, "QUnit.moduleStart calls" );
 	assert.equal( testStart, 3, "QUnit.testStart calls" );
@@ -129,16 +147,18 @@ test( "test1", 9, function( assert ) {
 	assert.deepEqual( moduleDoneContext, {
 		name: "logs1",
 		failed: 0,
-		passed: 26,
-		total: 26
+		passed: 27,
+		total: 27
 	}, "moduleDone context" );
 	assert.deepEqual( moduleContext, {
 		name: "logs2"
 	}, "module context" );
 
-	assert.equal( log, 34, "QUnit.log calls" );
+	assert.equal( log, 35, "QUnit.log calls" );
 });
-test( "test2", 8, function( assert ) {
+
+QUnit.test( "test2", function( assert ) {
+	assert.expect( 8 );
 	assert.equal( begin, 1, "QUnit.begin calls" );
 	assert.equal( moduleStart, 2, "QUnit.moduleStart calls" );
 	assert.equal( testStart, 4, "QUnit.testStart calls" );
@@ -153,14 +173,14 @@ test( "test2", 8, function( assert ) {
 		name: "logs2"
 	}, "module context" );
 
-	assert.equal( log, 42, "QUnit.log calls" );
+	assert.equal( log, 43, "QUnit.log calls" );
 });
 
 var testAutorun = true;
 
 QUnit.done(function() {
 
-	if (!testAutorun) {
+	if ( !testAutorun ) {
 		return;
 	}
 
@@ -171,15 +191,17 @@ QUnit.done(function() {
 	// Since these tests run *after* done, and as such
 	// QUnit is not able to know whether more tests are coming
 	// the module starts/ends after each test.
-	module("autorun");
+	QUnit.module( "autorun" );
 
-	test("first", function( assert ) {
-		assert.equal(moduleStart, 1, "test started");
-		assert.equal(moduleDone, 0, "test in progress");
-	});
+	setTimeout(function() {
+		QUnit.test( "first", function( assert ) {
+			assert.equal( moduleStart, 1, "test started" );
+			assert.equal( moduleDone, 0, "test in progress" );
+		});
 
-	test("second", function( assert ) {
-		assert.equal(moduleStart, 2, "test started");
-		assert.equal(moduleDone, 1, "test in progress");
-	});
+		QUnit.test( "second", function( assert ) {
+			assert.equal( moduleStart, 2, "test started" );
+			assert.equal( moduleDone, 1, "test in progress" );
+		});
+	}, 5000 );
 });

@@ -1,4 +1,5 @@
 [![Build Status](http://jenkins.jquery.com/job/QUnit/badge/icon)](http://jenkins.jquery.com/job/QUnit/)
+[![Coverage Status](https://coveralls.io/repos/jquery/qunit/badge.png)](https://coveralls.io/r/jquery/qunit)
 
 # [QUnit](http://qunitjs.com) - A JavaScript Unit Testing Framework.
 
@@ -32,40 +33,22 @@ the change, run `grunt` to lint and test it, then commit, push and create a pull
 Include some background for the change in the commit message and `Fixes #nnn`, referring
 to the issue number you're addressing.
 
-To run `grunt`, you need `node` and `npm`, then `npm install grunt -g`. That gives you a global
-grunt binary. For additional grunt tasks, also run `npm install`.
+To run `grunt`, you need [Node.js](http://nodejs.org/download/), which includes `npm`, then `npm install -g grunt-cli`. That gives you a global grunt binary. For additional grunt tasks, also run `npm install`.
 
 ## Releases
 
-Install [git-extras](https://github.com/visionmedia/git-extras) and run `git changelog` to update History.md. Clean up the changelog, removing merge commits or whitespace cleanups.
+Use [jquery-release](https://github.com/jquery/jquery-release). The following aren't yet handled there:
 
-Update qunit/qunit.js|css and package.json to the release version, commit ("Release $version") and
-tag (Put the 'v' in front of the tag, e.g. `v1.8.0`), update them again to
-the next version ("Bump post-release version"), commit and push commits and tags:
+Install [git-extras](https://github.com/visionmedia/git-extras) and run `git changelog` to update History.md. Clean up the changelog, removing merge commits or whitespace cleanups. Commit this before using the release script.
 
-	git push --tags origin master
-
-To upload to code.jquery.com (replace $version accordingly), ssh to jq03 (swarm.jquery.org).
-
-Clone or fetch QUnit, checkout the tag you created, then:
-
-	sudo cp qunit/qunit.js /var/www/html/code.jquery.com/qunit/qunit-$version.js
-	sudo cp qunit/qunit.css /var/www/html/code.jquery.com/qunit/qunit-$version.css
-
-Then update /var/www/html/code.jquery.com/index.html and purge it with:
-
-	curl -s http://code.origin.jquery.com/?reload
+Then run the script.
 
 Update web sites, replacing previous versions with new ones:
 
 * jquery/jquery-wp-content themes/jquery/footer-qunit.php
 * jquery/qunitjs.com pages/index.html
 
-Publish to npm via
-
-	npm publish
-
 Finally announce on Twitter @qunitjs
 
-	Released v1.12.0: https://github.com/jquery/qunit/tree/v1.12.0
-	Changelog: https://github.com/jquery/qunit/blob/v1.12.0/History.md
+	Released @VERSION: https://github.com/jquery/qunit/tree/@VERSION
+	Changelog: https://github.com/jquery/qunit/blob/@VERSION/History.md

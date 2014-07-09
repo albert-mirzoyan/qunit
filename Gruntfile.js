@@ -1,12 +1,7 @@
 /*jshint node:true */
 module.exports = function( grunt ) {
 
-grunt.loadNpmTasks( "grunt-git-authors" );
-grunt.loadNpmTasks( "grunt-contrib-concat" );
-grunt.loadNpmTasks( "grunt-contrib-jshint" );
-grunt.loadNpmTasks( "grunt-contrib-qunit" );
-grunt.loadNpmTasks( "grunt-contrib-watch" );
-
+require( "load-grunt-tasks" )( grunt );
 
 function process( code ) {
 	return code
@@ -30,7 +25,7 @@ grunt.initConfig({
 				"src/assert.js",
 				"src/equiv.js",
 				"src/dump.js",
-				"src/diff.js",
+				"external/jsdiff/jsdiff.js",
 				"src/export.js",
 				"src/outro.js"
 			],
@@ -38,36 +33,32 @@ grunt.initConfig({
 		},
 		"src-css": {
 			options: { process: process },
-			src: [
-				"src/qunit.css"
-			],
+			src: "src/qunit.css",
 			dest: "dist/qunit.css"
 		}
 	},
 	jshint: {
 		options: {
-			jshintrc: ".jshintrc"
+			jshintrc: true
 		},
-		gruntfile: [ "Gruntfile.js" ],
-		dist: [ "dist/*.js" ],
-		addons: {
-			options: {
-				jshintrc: "addons/.jshintrc"
-			},
-			files: {
-				src: [ "addons/**/*.js" ]
-			}
-		},
-		tests: {
-			options: {
-				jshintrc: "test/.jshintrc"
-			},
-			files: {
-				src: [ "test/**/*.js" ]
-			}
-		}
+		all: [
+			"*.js",
+			"{test,dist}/**/*.js",
+			"build/*.js"
+		]
 	},
 	qunit: {
+		options: {
+			timeout: 30000,
+			"--web-security": "no",
+			coverage: {
+				src: "dist/qunit.js",
+				instrumentedFiles: "temp/",
+				htmlReport: "build/report/coverage",
+				lcovReport: "build/report/lcov",
+				linesThresholdPct: 70
+			}
+		},
 		qunit: [
 			"test/index.html",
 			"test/async.html",
@@ -75,47 +66,120 @@ grunt.initConfig({
 			"test/setTimeout.html"
 		]
 	},
+	coveralls: {
+		options: {
+			force: true
+		},
+		all: {
+
+			// LCOV coverage file relevant to every target
+			src: "build/report/lcov/lcov.info"
+		}
+	},
 	watch: {
-		files: [ "*", ".jshintrc", "{addons,src,test}/**/{*,.*}" ],
+		options: {
+			atBegin: true
+		},
+		files: [
+			".jshintrc",
+			"*.js",
+			"build/*.js",
+			"{src,test}/**/*.js"
+		],
 		tasks: "default"
 	}
 });
 
-grunt.registerTask( "testswarm", function( commit, configFile ) {
-	var testswarm = require( "testswarm" ),
-		config = grunt.file.readJSON( configFile ).qunit,
+grunt.registerTask( "testswarm", function( commit, configFile, projectName, browserSets, timeout ) {
+	var config,
+		testswarm = require( "testswarm" ),
 		runs = {},
 		done = this.async();
 
-	["index", "async", "setTimeout"].forEach(function (suite) {
-		runs[suite] = config.testUrl + commit + "/test/" + suite + ".html";
+	projectName = projectName || "qunit";
+	config = grunt.file.readJSON( configFile )[ projectName ];
+	browserSets = browserSets || config.browserSets;
+	if ( browserSets[ 0 ] === "[" ) {
+		// We got an array, parse it
+		browserSets = JSON.parse( browserSets );
+	}
+	timeout = timeout || 1000 * 60 * 15;
+
+	[ "index", "async", "setTimeout" ].forEach(function ( suite ) {
+		runs[ suite ] = config.testUrl + commit + "/test/" + suite + ".html";
 	});
 
-	testswarm.createClient( {
-		url: config.swarmUrl,
-		pollInterval: 10000,
-		timeout: 1000 * 60 * 30
-	} )
-	.addReporter( testswarm.reporters.cli )
-	.auth( {
-		id: config.authUsername,
-		token: config.authToken
-	} )
-	.addjob(
-		{
-			name: "Commit <a href='https://github.com/jquery/qunit/commit/" + commit + "'>" + commit.substr( 0, 10 ) + "</a>",
+	testswarm
+		.createClient({
+			url: config.swarmUrl
+		})
+		.addReporter( testswarm.reporters.cli )
+		.auth({
+			id: config.authUsername,
+			token: config.authToken
+		})
+		.addjob({
+			name: "Commit <a href='https://github.com/jquery/qunit/commit/" + commit + "'>" +
+				commit.substr( 0, 10 ) + "</a>",
 			runs: runs,
-			browserSets: config.browserSets
+			browserSets: browserSets,
+			timeout: timeout
 		}, function( err, passed ) {
 			if ( err ) {
 				grunt.log.error( err );
 			}
 			done( passed );
-		}
-	);
+		});
 });
 
-grunt.registerTask( "build", ["concat"] );
-grunt.registerTask( "default", ["build", "jshint", "qunit"] );
+// TODO: Extract this task later, if feasible
+// Also spawn a separate process to keep tests atomic
+grunt.registerTask( "test-on-node", function() {
+	var testActive = false,
+		runDone = false,
+		done = this.async(),
+		QUnit = require( "./dist/qunit" );
+
+	QUnit.testStart(function() {
+		testActive = true;
+	});
+	QUnit.log(function( details ) {
+		if ( !testActive || details.result ) {
+			return;
+		}
+		var message = "name: " + details.name + " module: " + details.module +
+			" message: " + details.message;
+		grunt.log.error( message );
+	});
+	QUnit.testDone(function() {
+		testActive = false;
+	});
+	QUnit.done(function( details ) {
+		if ( runDone ) {
+			return;
+		}
+		var succeeded = ( details.failed === 0 ),
+			message = details.total + " assertions in (" + details.runtime + "ms), passed: " +
+				details.passed + ", failed: " + details.failed;
+		if ( succeeded ) {
+			grunt.log.ok( message );
+		} else {
+			grunt.log.error( message );
+		}
+		done( succeeded );
+		runDone = true;
+	});
+	QUnit.config.autorun = false;
+
+	require( "./test/logs" );
+	require( "./test/test" );
+	require( "./test/deepEqual" );
+	require( "./test/globals" );
+
+	QUnit.load();
+});
+
+grunt.registerTask( "build", [ "concat" ] );
+grunt.registerTask( "default", [ "build", "jshint", "qunit", "test-on-node" ] );
 
 };

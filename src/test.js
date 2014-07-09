@@ -1,5 +1,6 @@
 function Test( settings ) {
 	extend( this, settings );
+	this.assert = new Assert( this );
 	this.assertions = [];
 	this.testNumber = ++Test.count;
 }
@@ -18,7 +19,7 @@ Test.prototype = {
 			// `a` initialized at top of scope
 			a = document.createElement( "a" );
 			a.innerHTML = "Rerun";
-			a.href = QUnit.url({ testNumber: this.testNumber });
+			a.href = QUnit.url( { testNumber: this.testNumber } );
 
 			li = document.createElement( "li" );
 			li.appendChild( b );
@@ -31,8 +32,10 @@ Test.prototype = {
 	},
 	setup: function() {
 		if (
+
 			// Emit moduleStart when we're switching from one module to another
 			this.module !== config.previousModule ||
+
 				// They could be equal (both undefined) but if the previousModule property doesn't
 				// yet exist it means this is the first test in a suite that isn't wrapped in a
 				// module, in which case we'll just emit a moduleStart event for 'undefined'.
@@ -61,14 +64,13 @@ Test.prototype = {
 			teardown: function() {}
 		}, this.moduleTestEnvironment );
 
-		this.started = +new Date();
+		this.started = now();
 		runLoggingCallbacks( "testStart", QUnit, {
 			name: this.testName,
 			module: this.module
 		});
 
 		/*jshint camelcase:false */
-
 
 		/**
 		 * Expose the current test environment.
@@ -83,13 +85,13 @@ Test.prototype = {
 			saveGlobal();
 		}
 		if ( config.notrycatch ) {
-			this.testEnvironment.setup.call( this.testEnvironment, QUnit.assert );
+			this.testEnvironment.setup.call( this.testEnvironment, this.assert );
 			return;
 		}
 		try {
-			this.testEnvironment.setup.call( this.testEnvironment, QUnit.assert );
-		} catch( e ) {
-			QUnit.pushFailure( "Setup failed on " + this.testName + ": " + ( e.message || e ), extractStacktrace( e, 1 ) );
+			this.testEnvironment.setup.call( this.testEnvironment, this.assert );
+		} catch ( e ) {
+			this.pushFailure( "Setup failed on " + this.testName + ": " + ( e.message || e ), extractStacktrace( e, 1 ) );
 		}
 	},
 	run: function() {
@@ -105,21 +107,22 @@ Test.prototype = {
 			QUnit.stop();
 		}
 
-		this.callbackStarted = +new Date();
+		this.callbackStarted = now();
 
 		if ( config.notrycatch ) {
-			this.callback.call( this.testEnvironment, QUnit.assert );
-			this.callbackRuntime = +new Date() - this.callbackStarted;
+			this.callback.call( this.testEnvironment, this.assert );
+			this.callbackRuntime = now() - this.callbackStarted;
 			return;
 		}
 
 		try {
-			this.callback.call( this.testEnvironment, QUnit.assert );
-			this.callbackRuntime = +new Date() - this.callbackStarted;
-		} catch( e ) {
-			this.callbackRuntime = +new Date() - this.callbackStarted;
+			this.callback.call( this.testEnvironment, this.assert );
+			this.callbackRuntime = now() - this.callbackStarted;
+		} catch ( e ) {
+			this.callbackRuntime = now() - this.callbackStarted;
 
-			QUnit.pushFailure( "Died on test #" + (this.assertions.length + 1) + " " + this.stack + ": " + ( e.message || e ), extractStacktrace( e, 0 ) );
+			this.pushFailure( "Died on test #" + ( this.assertions.length + 1 ) + " " + this.stack + ": " + ( e.message || e ), extractStacktrace( e, 0 ) );
+
 			// else next test will carry the responsibility
 			saveGlobal();
 
@@ -133,15 +136,15 @@ Test.prototype = {
 		config.current = this;
 		if ( config.notrycatch ) {
 			if ( typeof this.callbackRuntime === "undefined" ) {
-				this.callbackRuntime = +new Date() - this.callbackStarted;
+				this.callbackRuntime = now() - this.callbackStarted;
 			}
-			this.testEnvironment.teardown.call( this.testEnvironment, QUnit.assert );
+			this.testEnvironment.teardown.call( this.testEnvironment, this.assert );
 			return;
 		} else {
 			try {
-				this.testEnvironment.teardown.call( this.testEnvironment, QUnit.assert );
-			} catch( e ) {
-				QUnit.pushFailure( "Teardown failed on " + this.testName + ": " + ( e.message || e ), extractStacktrace( e, 1 ) );
+				this.testEnvironment.teardown.call( this.testEnvironment, this.assert );
+			} catch ( e ) {
+				this.pushFailure( "Teardown failed on " + this.testName + ": " + ( e.message || e ), extractStacktrace( e, 1 ) );
 			}
 		}
 		checkPollution();
@@ -149,11 +152,11 @@ Test.prototype = {
 	finish: function() {
 		config.current = this;
 		if ( config.requireExpects && this.expected === null ) {
-			QUnit.pushFailure( "Expected number of assertions to be defined, but expect() was not called.", this.stack );
+			this.pushFailure( "Expected number of assertions to be defined, but expect() was not called.", this.stack );
 		} else if ( this.expected !== null && this.expected !== this.assertions.length ) {
-			QUnit.pushFailure( "Expected " + this.expected + " assertions, but " + this.assertions.length + " were run", this.stack );
+			this.pushFailure( "Expected " + this.expected + " assertions, but " + this.assertions.length + " were run", this.stack );
 		} else if ( this.expected === null && !this.assertions.length ) {
-			QUnit.pushFailure( "Expected at least one assertion, but none were run - call expect(0) to accept zero assertions.", this.stack );
+			this.pushFailure( "Expected at least one assertion, but none were run - call expect(0) to accept zero assertions.", this.stack );
 		}
 
 		var i, assertion, a, b, time, li, ol,
@@ -162,7 +165,7 @@ Test.prototype = {
 			bad = 0,
 			tests = id( "qunit-tests" );
 
-		this.runtime = +new Date() - this.started;
+		this.runtime = now() - this.started;
 		config.stats.all += this.assertions.length;
 		config.moduleStats.all += this.assertions.length;
 
@@ -171,7 +174,7 @@ Test.prototype = {
 			ol.className = "qunit-assert-list";
 
 			for ( i = 0; i < this.assertions.length; i++ ) {
-				assertion = this.assertions[i];
+				assertion = this.assertions[ i ];
 
 				li = document.createElement( "li" );
 				li.className = assertion.result ? "pass" : "fail";
@@ -204,19 +207,19 @@ Test.prototype = {
 			b = document.createElement( "strong" );
 			b.innerHTML = this.nameHtml + " <b class='counts'>(<b class='failed'>" + bad + "</b>, <b class='passed'>" + good + "</b>, " + this.assertions.length + ")</b>";
 
-			addEvent(b, "click", function() {
+			addEvent( b, "click", function() {
 				var next = b.parentNode.lastChild,
 					collapsed = hasClass( next, "qunit-collapsed" );
 				( collapsed ? removeClass : addClass )( next, "qunit-collapsed" );
 			});
 
-			addEvent(b, "dblclick", function( e ) {
+			addEvent( b, "dblclick", function( e ) {
 				var target = e && e.target ? e.target : window.event.srcElement;
 				if ( target.nodeName.toLowerCase() === "span" || target.nodeName.toLowerCase() === "b" ) {
 					target = target.parentNode;
 				}
 				if ( window.location && target.nodeName.toLowerCase() === "strong" ) {
-					window.location = QUnit.url({ testNumber: test.testNumber });
+					window.location = QUnit.url( { testNumber: test.testNumber } );
 				}
 			});
 
@@ -234,10 +237,9 @@ Test.prototype = {
 			li.appendChild( a );
 			li.appendChild( time );
 			li.appendChild( ol );
-
 		} else {
 			for ( i = 0; i < this.assertions.length; i++ ) {
-				if ( !this.assertions[i].result ) {
+				if ( !this.assertions[ i ].result ) {
 					bad++;
 					config.stats.bad++;
 					config.moduleStats.bad++;
@@ -251,6 +253,9 @@ Test.prototype = {
 			failed: bad,
 			passed: this.assertions.length - bad,
 			total: this.assertions.length,
+			runtime: this.runtime,
+
+			// DEPRECATED: this property will be removed in 2.0.0, use runtime instead
 			duration: this.runtime
 		});
 
@@ -285,12 +290,114 @@ Test.prototype = {
 		// `bad` initialized at top of scope
 		// defer when previous test run passed, if storage is available
 		bad = QUnit.config.reorder && defined.sessionStorage &&
-						+sessionStorage.getItem( "qunit-test-" + this.module + "-" + this.testName );
+				+sessionStorage.getItem( "qunit-test-" + this.module + "-" + this.testName );
 
 		if ( bad ) {
 			run();
 		} else {
 			synchronize( run, true );
 		}
+	},
+
+	push: function( result, actual, expected, message ) {
+		if ( !this instanceof Test ) {
+			throw new Error( "assertion outside test context, was " + sourceFromStacktrace() );
+		}
+
+		var output, source,
+			details = {
+				module: this.module,
+				name: this.testName,
+				result: result,
+				message: message,
+				actual: actual,
+				expected: expected
+			};
+
+		message = escapeText( message ) || ( result ? "okay" : "failed" );
+		message = "<span class='test-message'>" + message + "</span>";
+		output = message;
+
+		if ( !result ) {
+			expected = escapeText( QUnit.dump.parse( expected ) );
+			actual = escapeText( QUnit.dump.parse( actual ) );
+			output += "<table><tr class='test-expected'><th>Expected: </th><td><pre>" + expected + "</pre></td></tr>";
+
+			if ( actual !== expected ) {
+				output += "<tr class='test-actual'><th>Result: </th><td><pre>" + actual + "</pre></td></tr>";
+				output += "<tr class='test-diff'><th>Diff: </th><td><pre>" + QUnit.diff( expected, actual ) + "</pre></td></tr>";
+			}
+
+			source = sourceFromStacktrace();
+
+			if ( source ) {
+				details.source = source;
+				output += "<tr class='test-source'><th>Source: </th><td><pre>" + escapeText( source ) + "</pre></td></tr>";
+			}
+
+			output += "</table>";
+		}
+
+		runLoggingCallbacks( "log", QUnit, details );
+
+		this.assertions.push({
+			result: !!result,
+			message: output
+		});
+	},
+
+	pushFailure: function( message, source, actual ) {
+		if ( !this instanceof Test ) {
+			throw new Error( "pushFailure() assertion outside test context, was " + sourceFromStacktrace( 2 ) );
+		}
+
+		var output,
+			details = {
+				module: this.module,
+				name: this.testName,
+				result: false,
+				message: message
+			};
+
+		message = escapeText( message ) || "error";
+		message = "<span class='test-message'>" + message + "</span>";
+		output = message;
+
+		output += "<table>";
+
+		if ( actual ) {
+			output += "<tr class='test-actual'><th>Result: </th><td><pre>" + escapeText( actual ) + "</pre></td></tr>";
+		}
+
+		if ( source ) {
+			details.source = source;
+			output += "<tr class='test-source'><th>Source: </th><td><pre>" + escapeText( source ) + "</pre></td></tr>";
+		}
+
+		output += "</table>";
+
+		runLoggingCallbacks( "log", QUnit, details );
+
+		config.current.assertions.push({
+			result: false,
+			message: output
+		});
 	}
+};
+
+// Deprecated
+QUnit.push = function() {
+
+	// Gets current test obj
+	var currentTest = QUnit.config.current.assert.test;
+
+	return currentTest.push.apply( currentTest, arguments );
+};
+
+QUnit.pushFailure = function() {
+
+	// Gets current test obj
+	var currentTest = QUnit.config.current.assert.test;
+
+	return currentTest.pushFailure.apply( currentTest, arguments );
 };

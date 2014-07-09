@@ -1,11 +1,35 @@
-// Export global variables, unless an 'exports' object exists,
-// in that case we assume we're in CommonJS
-if ( typeof exports === "undefined" ) {
-	extend( window, QUnit.constructor.prototype );
+// For browser, export only select globals
+if ( typeof window !== "undefined" ) {
+	(function() {
+		var i, l,
+			keys = [
+				"test",
+				"module",
+				"expect",
+				"asyncTest",
+				"start",
+				"stop",
+				"ok",
+				"equal",
+				"notEqual",
+				"propEqual",
+				"notPropEqual",
+				"deepEqual",
+				"notDeepEqual",
+				"strictEqual",
+				"notStrictEqual",
+				"throws"
+			];
 
-	// Expose QUnit object
+		for ( i = 0, l = keys.length; i < l; i++ ) {
+			window[ keys[ i ] ] = QUnit[ keys[ i ] ];
+		}
+	})();
+
 	window.QUnit = QUnit;
-} else {
-	// for CommonJS environments, export everything
-	extend( exports, QUnit.constructor.prototype );
+}
+
+// For CommonJS environments, export everything
+if ( typeof module !== "undefined" && module.exports ) {
+	module.exports = QUnit;
 }
